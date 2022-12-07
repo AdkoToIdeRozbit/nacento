@@ -1,3 +1,3 @@
-# Naceň to
+# Naceň to :) 
 
-Webstránka pre automatické naceňovanie z projektovej dokumentácie rodinných domov
+Automatické naceňovanie stavieb z projektovej dokumentácie
