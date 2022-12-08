@@ -6,7 +6,6 @@ import tensorflow as tf
 import numpy as np
 import base64
 import cv2
-import re
 
 
 IMG_WIDTH = 1120 #divisible by 32
@@ -88,6 +87,8 @@ def zisti_mierku(img, x, y, w, h):
         if x[1].isdigit() : koty.append((int(x[1]), i))
 
     koty = sorted(koty, reverse=True)
+
+    if len(koty) == 0 : return img1
 
     for i in range(3):
         lh, ph, pd, ld = result[koty[i][1]][0]
@@ -204,13 +205,18 @@ def detect(image):
 
 def get_stavba(img):
     img = orez_okraj(img)
+    original = img.copy()
+    original = cv2.cvtColor(original, cv2.COLOR_GRAY2RGB)
+
     objekty = detect(img)
     i = 0
     for j,objekt in enumerate(objekty):
         area = objekt[2] * objekt[3]
         if area > objekty[i][2] * objekty[i][3]:
             i = j
+        x,y,w,h = objekt
+        cv2.rectangle(original, (x,y), (x+w,y+h), (0,255,0), 3)
 
     x,y,w,h = objekty[i]
-    return img[y:y+h, x:x+w]
+    return img[y:y+h, x:x+w], cv2.resize(original, IMG_SIZE)
 
