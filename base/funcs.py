@@ -25,7 +25,9 @@ def img_to_html(img):
     frame_b64 = base64.b64encode(frame_buff).decode()
     return frame_b64
 
+
 def segment_zaklady(stavba):
+    print(stavba.shape)
     DX = stavba.shape[0] / IMG_HEIGHT
     DY = stavba.shape[1] / IMG_WIDTH
     original_stavba = stavba.copy()
@@ -41,23 +43,42 @@ def segment_zaklady(stavba):
             if prediction[x][y] > 0.5 : zaklady[x][y] = 255
             else: zaklady[x][y] = 0
 
+    # coef_y = img.shape[0] / IMG_HEIGHT
+    # coef_x = img.shape[1] / IMG_WIDTH
+
     contours = cv2.findContours(zaklady, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
     approx_contours = []
     for cnt in contours:
         if cv2.contourArea(cnt) < 200 : continue
-        peri = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.005 * peri, True)
-        approx_contours.append(approx)
+
+        # cnt[:, :, 0] = cnt[:, :, 0] * coef_x
+        # cnt[:, :, 1] = cnt[:, :, 1] * coef_y
+
+        #peri = cv2.arcLength(cnt, True)
+        #approx = cv2.approxPolyDP(cnt, 0.005 * peri, True)
+        approx_contours.append(cnt)
 
     new_prediction = np.zeros((zaklady.shape) , np.uint8)
     cv2.fillPoly(new_prediction, pts=approx_contours, color=255)
 
-    contours = np.concatenate(contours) #group all contours
+    #img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    
+
+    #cv2.drawContours(img, approx_contours, -1, (0, 255, 0), 5)
+
+    contours = np.concatenate(approx_contours) #group all contours
     x, y, w, h = cv2.boundingRect(contours)
     x,y,w,h = int(round(x*DY)), int(round(y*DX)), int(round(w*DY)), int(round(h*DX))
-    new_prediction = zisti_mierku(original_stavba, x, y, w, h)
+    cut = zisti_mierku(original_stavba, x, y, w, h)
 
-    return new_prediction
+    new_prediction = cv2.resize(new_prediction, (original_stavba.shape[1], original_stavba.shape[0]), interpolation=cv2.INTER_NEAREST)
+    # print(np.unique(new_prediction))
+
+    # area = cv2.countNonZero(new_prediction)
+    # print(area*81)
+
+    return cut, new_prediction
 
 def find_nearest_white(img, target):
     nonzero = cv2.findNonZero(img)
@@ -67,7 +88,7 @@ def find_nearest_white(img, target):
 
 #takes original image and location of foundations.
 #cuts the  foundations from the iamge, hopefully leaving the dimensions
-#applies easyocr to fid the largest number, thresholds the image and inverts it
+#applies easyocr to find the largest number, thresholds the image and inverts it
 #we can than find closest white pixel using otpimized numpy functions very quickly
 #finds end of dimension when reaches a point which had down 5 white pixels  
 def zisti_mierku(img, x, y, w, h):
@@ -90,7 +111,10 @@ def zisti_mierku(img, x, y, w, h):
 
     if len(koty) == 0 : return img1
 
-    for i in range(3):
+    for i in range(1):
+        #print(result[koty[i][1]])[1]
+        length = int(result[koty[i][1]][1])
+
         lh, ph, pd, ld = result[koty[i][1]][0]
         lh = (int(lh[0]), int(lh[1]))
         #ph = (int(ph[0]), int(ph[1]))
@@ -107,11 +131,13 @@ def zisti_mierku(img, x, y, w, h):
         while(img1[z[1]][z[0]] == 255) : z[1] += 1
         z[1] -= 1
 
+
+
         pixel_count = 0
         x1 = z[0]
-        while(pixel_count < 12):
+        while(pixel_count < 5):
             pixel_count = 0
-            for y in range(z[1], z[1] + 15):
+            for y in range(z[1], z[1] + 5):
                 if img1[y][x1] == 255 : pixel_count += 1
             x1+=1
         #while(img1[z[1]][x1] == 255) : x1 += 1
@@ -119,14 +145,16 @@ def zisti_mierku(img, x, y, w, h):
 
         pixel_count = 0
         x2 = z[0]
-        while(pixel_count < 12):
+        while(pixel_count < 5):
             pixel_count = 0
-            for y in range(z[1], z[1] + 15):
+            for y in range(z[1], z[1] + 5):
                 if img1[y][x2] == 255 : pixel_count += 1
             x2-=1
         #while(img1[z[1]][x2] == 255) : x2 -= 1
         #x2 += 1
 
+        mierka = length / (x1 - x2) 
+        print(mierka)
        
         cv2.line(original, (x1, z[1]), (x2, z[1]), (0,255,0), 1)
         #cv2.circle(img1, (x1, z[1]), 5, (255,0,0), 1)
