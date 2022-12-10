@@ -33,6 +33,7 @@ def segment_zaklady(stavba):
     original_stavba = stavba.copy()
 
     stavba = cv2.resize(stavba, IMG_SIZE)
+    stavba = cv2.cvtColor(stavba,cv2.COLOR_GRAY2RGB)
     stavba = np.expand_dims(stavba, 0)
     prediction = model.predict(stavba)
     prediction = prediction[0,:,:,0]
@@ -61,12 +62,6 @@ def segment_zaklady(stavba):
     new_prediction = np.zeros((zaklady.shape) , np.uint8)
     cv2.fillPoly(new_prediction, pts=approx_contours, color=255)
 
-    #img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
-    
-
-    #cv2.drawContours(img, approx_contours, -1, (0, 255, 0), 5)
-
     contours = np.concatenate(approx_contours) #group all contours
     x, y, w, h = cv2.boundingRect(contours)
     x,y,w,h = int(round(x*DY)), int(round(y*DX)), int(round(w*DY)), int(round(h*DX))
@@ -86,11 +81,6 @@ def find_nearest_white(img, target):
     nearest_index = np.argmin(distances)
     return nonzero[nearest_index][0]
 
-#takes original image and location of foundations.
-#cuts the  foundations from the iamge, hopefully leaving the dimensions
-#applies easyocr to find the largest number, thresholds the image and inverts it
-#we can than find closest white pixel using otpimized numpy functions very quickly
-#finds end of dimension when reaches a point which had down 5 white pixels  
 def zisti_mierku(img, x, y, w, h):
     f = 15
     img1 = img[0:y, x-f:x+w+f]
@@ -99,7 +89,7 @@ def zisti_mierku(img, x, y, w, h):
 
     result = reader.readtext(img1)
 
-    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    #img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     img1 = cv2.threshold(img1,220,255,0)[1]
     img1 = cv2.bitwise_not(img1)
     
@@ -168,6 +158,8 @@ def orez_okraj(image):
     img = image.copy()
     #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
+    print(img.shape)
+
     img_area = img.shape[0]*img.shape[1]
 
     kernel = np.ones((3, 3), np.uint8)
@@ -175,6 +167,8 @@ def orez_okraj(image):
 
     thresh = cv2.threshold(img,220,255,0)[1]
     thresh = cv2.bitwise_not(thresh) #opecnv countours finds black objects on white bacground
+    
+    print(thresh.shape)
 
     contours = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
@@ -234,7 +228,7 @@ def detect(image):
 def get_stavba(img):
     img = orez_okraj(img)
     original = img.copy()
-    original = cv2.cvtColor(original, cv2.COLOR_GRAY2RGB)
+    #original = cv2.cvtColor(original, cv2.COLOR_GRAY2RGB)
 
     objekty = detect(img)
     i = 0
@@ -243,8 +237,10 @@ def get_stavba(img):
         if area > objekty[i][2] * objekty[i][3]:
             i = j
         x,y,w,h = objekt
-        cv2.rectangle(original, (x,y), (x+w,y+h), (0,255,0), 3)
+        #cv2.rectangle(original, (x,y), (x+w,y+h), (0,255,0), 3)
 
     x,y,w,h = objekty[i]
-    return img[y:y+h, x:x+w], cv2.resize(original, IMG_SIZE)
+    # return img[y:y+h, x:x+w], cv2.resize(original, IMG_SIZE)
+    return img[y:y+h, x:x+w]
+
 
