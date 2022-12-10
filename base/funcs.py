@@ -19,6 +19,8 @@ model = tf.keras.models.load_model(
         'iou_score': IOUScore(),
     }
 )
+reader = easyocr.Reader(['en'], gpu=True) #more than 10x faster on GPU, better thean pytesseract on numbers
+    
 
 def img_to_html(img):
     frame_buff = cv2.imencode('.png', img)[1]
@@ -81,35 +83,43 @@ def find_nearest_white(img, target):
     nearest_index = np.argmin(distances)
     return nonzero[nearest_index][0]
 
-def zisti_mierku(img, x, y, w, h):
-    f = 15
-    img1 = img[0:y, x-f:x+w+f]
+def find_end_dim_x(img, direction, x, Y):
+    if direction: add = 1
+    else : add = -1
+
+    pixel_count = 0
+    while(pixel_count < 5):
+        pixel_count = 0
+        for y in range(Y, Y + 5):
+            if img[y][x] == 255 : pixel_count += 1
+        x+=add
+
+    return x
+
+def search_dimensions(img1):
     original = img1.copy()
-    reader = easyocr.Reader(['en'], gpu=True) #more than 10x faster on GPU, better thean pytesseract on numbers
+    original = cv2.cvtColor(original, cv2.COLOR_GRAY2BGR)
 
     result = reader.readtext(img1)
 
-    #img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     img1 = cv2.threshold(img1,220,255,0)[1]
     img1 = cv2.bitwise_not(img1)
     
     koty = []
     for i, x in enumerate(result):
-        if x[1].isdigit() : koty.append((int(x[1]), i))
+        if x[1].isdigit() and 100000 > int(x[1]) > 0: #dimension (0,100) in meters
+            koty.append((int(x[1]), i))
 
     koty = sorted(koty, reverse=True)
 
     if len(koty) == 0 : return img1
 
     for i in range(1):
-        #print(result[koty[i][1]])[1]
         length = int(result[koty[i][1]][1])
 
         lh, ph, pd, ld = result[koty[i][1]][0]
         lh = (int(lh[0]), int(lh[1]))
-        #ph = (int(ph[0]), int(ph[1]))
         pd = (int(pd[0]), int(pd[1]))
-        #ld = (int(ld[0]), int(ld[1]))
 
         for x in range(lh[1], pd[1]):
             for y in range(lh[0], pd[0]):
@@ -122,36 +132,30 @@ def zisti_mierku(img, x, y, w, h):
         z[1] -= 1
 
 
+        x1 = find_end_dim_x(img1, True, z[0], z[1])
+        x2 = find_end_dim_x(img1, False, z[0], z[1])
 
-        pixel_count = 0
-        x1 = z[0]
-        while(pixel_count < 5):
-            pixel_count = 0
-            for y in range(z[1], z[1] + 5):
-                if img1[y][x1] == 255 : pixel_count += 1
-            x1+=1
-        #while(img1[z[1]][x1] == 255) : x1 += 1
-        #x1 -= 1
-
-        pixel_count = 0
-        x2 = z[0]
-        while(pixel_count < 5):
-            pixel_count = 0
-            for y in range(z[1], z[1] + 5):
-                if img1[y][x2] == 255 : pixel_count += 1
-            x2-=1
-        #while(img1[z[1]][x2] == 255) : x2 -= 1
-        #x2 += 1
+        if z[0] - x2 > 5 * (x1 - z[0]) : x1 = find_end_dim_x(img1, True, x1 + 25, z[1]) #fix intersected dimension
+        if x1 - z[0] > 5 * (z[0] - x2) : x2 = find_end_dim_x(img1, False, x2 - 25, z[1])
 
         mierka = length / (x1 - x2) 
         print(mierka)
        
         cv2.line(original, (x1, z[1]), (x2, z[1]), (0,255,0), 1)
-        #cv2.circle(img1, (x1, z[1]), 5, (255,0,0), 1)
-        #cv2.circle(img1, (x1, z[1]), 5, (255,0,0), 1)
         cv2.rectangle(original, lh, pd, (0, 255, 0), 1)
 
-    #img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    return original
+
+def zisti_mierku(img, x, y, w, h):
+    f = 15
+    img1 = img[0:y, x-f:x+w+f]
+    img2 = img[y+h:img.shape[0]-1, x-f:x+w+f]
+    img3 = cv2.rotate(img[y-f:y+h+f, 0:x], cv2.ROTATE_90_CLOCKWISE)
+    img4 = cv2.rotate(img[y-f:y+h+f, x+w:img.shape[1]-1], cv2.ROTATE_90_CLOCKWISE)
+
+    #original = search_dimensions(img1)
+    original = search_dimensions(img1)
+
     return original
 
 def orez_okraj(image):
