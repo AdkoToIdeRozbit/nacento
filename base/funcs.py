@@ -21,7 +21,7 @@ model = tf.keras.models.load_model(
 )
 reader = easyocr.Reader(['en'], gpu=True) #more than 10x faster on GPU, better thean pytesseract on numbers
     
-
+    
 def img_to_html(img):
     frame_buff = cv2.imencode('.png', img)[1]
     frame_b64 = base64.b64encode(frame_buff).decode()
@@ -29,7 +29,6 @@ def img_to_html(img):
 
 
 def segment_zaklady(stavba):
-    print(stavba.shape)
     DX = stavba.shape[0] / IMG_HEIGHT
     DY = stavba.shape[1] / IMG_WIDTH
     original_stavba = stavba.copy()
@@ -73,7 +72,7 @@ def segment_zaklady(stavba):
     # print(np.unique(new_prediction))
 
     # area = cv2.countNonZero(new_prediction)
-    # print(area*81)
+    # print(area*mierka*mierka)
 
     return cut, new_prediction
 
@@ -162,8 +161,6 @@ def orez_okraj(image):
     img = image.copy()
     #img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    print(img.shape)
-
     img_area = img.shape[0]*img.shape[1]
 
     kernel = np.ones((3, 3), np.uint8)
@@ -171,8 +168,6 @@ def orez_okraj(image):
 
     thresh = cv2.threshold(img,220,255,0)[1]
     thresh = cv2.bitwise_not(thresh) #opecnv countours finds black objects on white bacground
-    
-    print(thresh.shape)
 
     contours = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[0]
 
@@ -199,16 +194,11 @@ def orez_okraj(image):
 
 def detect(image):
     img = image.copy()
-    # if len(img.shape) > 2:
-    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # else: image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
         
     kernel = np.ones((9, 9), np.uint8)
     img = cv2.erode(img, kernel, iterations=9)
 
     thresh = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-
-    #thresh = cv2.threshold(img,220,255,0, cv2.THRESH_BINARY_INV)[1]
 
     output = cv2.connectedComponentsWithStats(thresh, 4, cv2.CV_32S)
     (numLabels, labels, stats, centroids) = output
